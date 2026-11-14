@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Giusy Assistente AI</title>
+  <style>
+    body {
+      background: #0f172a; color: #f8fafc; font-family: system-ui, sans-serif;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      height: 100vh; margin: 0; text-align: center; padding: 20px;
+    }
+    h1 { font-size: 1.6rem; margin-bottom: 8px; }
+    p { color: #94a3b8; margin-bottom: 32px; max-width: 340px; }
+    button {
+      width: 180px; height: 180px; border-radius: 50%; border: none;
+      font-size: 1.2rem; font-weight: bold; color: white; cursor: pointer;
+      box-shadow: 0 0 30px rgba(34, 197, 94, 0.4);
+    }
+    #btn-attiva { background: #22c55e; }
+    #btn-chiudi { background: #ef4444; display: none; box-shadow: 0 0 30px rgba(239, 68, 68, 0.4); }
+  </style>
+</head>
+<body>
+  <h1>Giusy AI</h1>
+  <p id="stato">Tocca il pulsante verde per avviare Giusy e parlare con lei.</p>
+
+  <button id="btn-attiva">ATTIVA GIUSY</button>
+  <button id="btn-chiudi">TERMINA</button>
+
+  <script type="module">
+    import VapiModule from 'https://esm.sh/@vapi-ai/web';
+    const Vapi = VapiModule.default || VapiModule;
+
+    const vapi = new Vapi('Iefd639a7-ceaa-45b6-a434-d9776173c096');
+    const ASSISTANT_ID = '5816b8aa-2cc5-4acb-9c80-c6bd012cb069';
+
+    const params = new URLSearchParams(window.location.search);
+    const nomeTitolare = params.get('titolare') || 'Salvo';
+    const contesto = params.get('contesto') || '';
+
+    const btnAttiva = document.getElementById('btn-attiva');
+    const btnChiudi = document.getElementById('btn-chiudi');
+    const stato = document.getElementById('stato');
+
+    btnAttiva.addEventListener('click', async () => {
+      btnAttiva.disabled = true;
+      stato.textContent = 'Connessione con Giusy in corso...';
+
+      try {
+        await vapi.start(ASSISTANT_ID, {
+          firstMessage: `Ciao ${nomeTitolare}, sono Giusy! Dimmi pure, di cosa hai bisogno?`,
+          variableValues: {
+            nome_titolare: nomeTitolare,
+            modalita: 'richiesta_titolare',
+            contesto: contesto
+          }
+        });
+      } catch (err) {
+        stato.textContent = 'Errore attivazione: ' + err.message;
+        btnAttiva.disabled = false;
+      }
+    });
+
+    btnChiudi.addEventListener('click', () => {
+      vapi.stop();
+    });
+
+    vapi.on('call-start', () => {
+      stato.textContent = 'Giusy è attiva e in ascolto — Parla pure';
+      btnAttiva.style.display = 'none';
+      btnChiudi.style.display = 'inline-block';
+    });
+
+    vapi.on('call-end', () => {
+      stato.textContent = 'Conversazione terminata.';
+      btnChiudi.style.display = 'none';
+      btnAttiva.style.display = 'inline-block';
+      btnAttiva.disabled = false;
+    });
+  </script>
+</body>
+</html>
