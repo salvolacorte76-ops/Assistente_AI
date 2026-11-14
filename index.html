@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Giusy Assistente AI</title>
+  <title>Giusy - Segreteria AI</title>
   <style>
     body {
       background: #0f172a; color: #f8fafc; font-family: system-ui, sans-serif;
@@ -11,54 +11,77 @@
       height: 100vh; margin: 0; text-align: center; padding: 20px;
     }
     h1 { font-size: 1.6rem; margin-bottom: 8px; }
-    p { color: #94a3b8; margin-bottom: 32px; max-width: 340px; }
+    p { color: #94a3b8; margin-bottom: 32px; max-width: 340px; line-height: 1.4; word-break: break-word; }
     button {
       width: 180px; height: 180px; border-radius: 50%; border: none;
       font-size: 1.2rem; font-weight: bold; color: white; cursor: pointer;
       box-shadow: 0 0 30px rgba(34, 197, 94, 0.4);
     }
-    #btn-attiva { background: #22c55e; }
+    #btn-rispondi { background: #22c55e; }
     #btn-chiudi { background: #ef4444; display: none; box-shadow: 0 0 30px rgba(239, 68, 68, 0.4); }
   </style>
 </head>
 <body>
-  <h1>Giusy AI</h1>
-  <p id="stato">Tocca il pulsante verde per avviare Giusy e parlare con lei.</p>
+  <h1>Giusy</h1>
+  <p id="stato">Tocca il pulsante verde per rispondere a Giusy.</p>
 
-  <button id="btn-attiva">ATTIVA GIUSY</button>
-  <button id="btn-chiudi">TERMINA</button>
+  <button id="btn-rispondi">RISPONDI</button>
+  <button id="btn-chiudi">CHIUDI</button>
 
   <script type="module">
     import VapiModule from 'https://esm.sh/@vapi-ai/web';
     const Vapi = VapiModule.default || VapiModule;
 
-    const vapi = new Vapi('Iefd639a7-ceaa-45b6-a434-d9776173c096');
-    const ASSISTANT_ID = '5816b8aa-2cc5-4acb-9c80-c6bd012cb069';
+    // INCOLLA QUI LA TUA PUBLIC KEY DI VAPI (NON LA PRIVATE KEY)
+    const PUBLIC_KEY = 'efd639a7-ceaa-45b6-a434-d9776173c096';
+    const vapi = new Vapi(PUBLIC_KEY.trim());
 
     const params = new URLSearchParams(window.location.search);
-    const nomeTitolare = params.get('titolare') || 'Salvo';
-    const contesto = params.get('contesto') || '';
+    const assistantId = params.get('assistant_id') || '5816b8aa-2cc5-4acb-9c80-c6bd012cb069';
+    const nomeTitolare = params.get('nome_titolare') || 'Salvo';
+    const modalita = params.get('modalita') || 'avviso_email';
+    const stile = params.get('stile') || 'normale';
+    const contenuto = params.get('contenuto') || 'Nessuna email in archivio al momento.';
+    const durataMax = parseInt(params.get('durata') || '90', 10);
 
-    const btnAttiva = document.getElementById('btn-attiva');
+    let primoMessaggio = `Ciao ${nomeTitolare}, tutto bene? Ti chiamo al volo perché è arrivata un'email importante.`;
+    if (modalita === 'richiesta_titolare') {
+      primoMessaggio = `Ciao ${nomeTitolare}, eccomi! Dimmi pure, di cosa hai bisogno?`;
+    } else if (stile === 'rapido') {
+      primoMessaggio = `Ciao ${nomeTitolare}, ti rubo dieci secondi per un'email urgente.`;
+    }
+
+    const btnRispondi = document.getElementById('btn-rispondi');
     const btnChiudi = document.getElementById('btn-chiudi');
     const stato = document.getElementById('stato');
 
-    btnAttiva.addEventListener('click', async () => {
-      btnAttiva.disabled = true;
+    function leggiErrore(err) {
+      if (!err) return 'Errore sconosciuto';
+      if (typeof err === 'string') return err;
+      if (err.error && typeof err.error === 'object') return JSON.stringify(err.error);
+      if (err.message && typeof err.message === 'object') return JSON.stringify(err.message);
+      if (err.message) return String(err.message);
+      return JSON.stringify(err);
+    }
+
+    btnRispondi.addEventListener('click', async () => {
+      btnRispondi.disabled = true;
       stato.textContent = 'Connessione con Giusy in corso...';
 
       try {
-        await vapi.start(ASSISTANT_ID, {
-          firstMessage: `Ciao ${nomeTitolare}, sono Giusy! Dimmi pure, di cosa hai bisogno?`,
+        await vapi.start(assistantId, {
+          firstMessage: primoMessaggio,
           variableValues: {
             nome_titolare: nomeTitolare,
-            modalita: 'richiesta_titolare',
-            contesto: contesto
-          }
+            modalita: modalita,
+            stile: stile,
+            contenuto: contenuto
+          },
+          maxDurationSeconds: durataMax
         });
       } catch (err) {
-        stato.textContent = 'Errore attivazione: ' + err.message;
-        btnAttiva.disabled = false;
+        stato.textContent = 'Errore attivazione: ' + leggiErrore(err);
+        btnRispondi.disabled = false;
       }
     });
 
@@ -67,16 +90,23 @@
     });
 
     vapi.on('call-start', () => {
-      stato.textContent = 'Giusy è attiva e in ascolto — Parla pure';
-      btnAttiva.style.display = 'none';
+      stato.textContent = 'In chiamata con Giusy — Parla pure';
+      btnRispondi.style.display = 'none';
       btnChiudi.style.display = 'inline-block';
     });
 
     vapi.on('call-end', () => {
-      stato.textContent = 'Conversazione terminata.';
+      stato.textContent = 'Chiamata terminata.';
       btnChiudi.style.display = 'none';
-      btnAttiva.style.display = 'inline-block';
-      btnAttiva.disabled = false;
+      btnRispondi.style.display = 'inline-block';
+      btnRispondi.disabled = false;
+    });
+
+    vapi.on('error', (err) => {
+      stato.textContent = 'Errore Vapi: ' + leggiErrore(err);
+      btnChiudi.style.display = 'none';
+      btnRispondi.style.display = 'inline-block';
+      btnRispondi.disabled = false;
     });
   </script>
 </body>
